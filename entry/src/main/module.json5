@@ -12,6 +12,17 @@
     "deliveryWithInstall": true,
     "installationFree": false,
     "pages": "$profile:main_pages",
+    "requestPermissions": [
+      {
+        "name": "ohos.permission.INTERNET"
+      },
+      {
+        "name": "ohos.permission.GET_NETWORK_INFO"
+      },
+      {
+        "name": "ohos.permission.NOTIFICATION_CONTROLLER"
+      }
+    ],
     "abilities": [
       {
         "name": "EntryAbility",
