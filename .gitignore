@@ -1,0 +1,11 @@
+aoxiang-assistant/
+.cache/
+*.hap
+*.app
+build/
+.hvigor/
+node_modules/
+oh_modules/
+.cxx/
+.gradle/
+local.properties
