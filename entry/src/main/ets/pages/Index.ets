@@ -62,6 +62,8 @@ struct Index {
   @State interactiveMode: boolean = false;
   @State showCourseColorDialog: boolean = false;
   @State colorPickCourse: Course | undefined = undefined;
+  @State materialLevel: hdsMaterial.MaterialLevel = hdsMaterial.MaterialLevel.ADAPTIVE;
+  @State materialImmersiveSupported: boolean = true;
   @StorageProp('topRectHeight') topRectHeight: number = 0;
 
   private webController: webview.WebviewController = new webview.WebviewController();
@@ -90,6 +92,7 @@ struct Index {
     this.loadGradesFromPref();
     this.loadElectricityFromPref();
     this.loadCoursesFromPref();
+    this.loadMaterialLevel();
     console.info(`aboutToAppear done: grades=${this.grades.length} electricity=${this.electricityBalance} hasCreds=${this.hasCredentials}`);
     this.pushWidgetData();
   }
@@ -101,6 +104,50 @@ struct Index {
         this.selectedSemesterIndex, this.electricityBalance);
     } catch (e) {
       console.error(`pushWidgetData failed: ${e}`);
+    }
+  }
+
+  private loadMaterialLevel(): void {
+    if (this.gradePref !== undefined) {
+      try {
+        const raw: string = this.gradePref.getSync('material_level', '10') as string;
+        const saved: number = parseInt(raw, 10);
+        this.materialLevel = this.toMaterialLevel(saved);
+      } catch (e) {
+        console.error('load material_level failed');
+      }
+    }
+    try {
+      const types: Array<hdsMaterial.MaterialType> = hdsMaterial.getSystemMaterialTypes();
+      this.materialImmersiveSupported = types.indexOf(hdsMaterial.MaterialType.IMMERSIVE) >= 0;
+      if (!this.materialImmersiveSupported &&
+          (this.materialLevel === hdsMaterial.MaterialLevel.EXQUISITE ||
+           this.materialLevel === hdsMaterial.MaterialLevel.GENTLE)) {
+        this.materialLevel = hdsMaterial.MaterialLevel.SMOOTH;
+      }
+    } catch (e) {
+      this.materialImmersiveSupported = false;
+    }
+  }
+
+  private toMaterialLevel(value: number): hdsMaterial.MaterialLevel {
+    switch (value) {
+      case 0: return hdsMaterial.MaterialLevel.EXQUISITE;
+      case 1: return hdsMaterial.MaterialLevel.GENTLE;
+      case 2: return hdsMaterial.MaterialLevel.SMOOTH;
+      default: return hdsMaterial.MaterialLevel.ADAPTIVE;
+    }
+  }
+
+  private onMaterialLevelSelected(level: hdsMaterial.MaterialLevel): void {
+    this.materialLevel = level;
+    if (this.gradePref !== undefined) {
+      try {
+        this.gradePref.putSync('material_level', String(level));
+        this.gradePref.flushSync();
+      } catch (e) {
+        console.error('save material_level failed');
+      }
     }
   }
 
@@ -1089,7 +1136,7 @@ struct Index {
         barBottomMargin: 28,
         systemMaterialEffect: {
           materialType: hdsMaterial.MaterialType.ADAPTIVE,
-          materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+          materialLevel: this.materialLevel
         }
       })
       .width('100%')
@@ -1758,6 +1805,95 @@ struct Index {
         .width('92%')
         .backgroundColor($r('app.color.card_background'))
         .borderRadius(12)
+
+        Column() {
+          Text('沉浸光感')
+            .fontSize(15)
+            .fontColor($r('app.color.text_secondary'))
+            .width('100%')
+            .padding({ left: 16, top: 12, bottom: 4 })
+
+          Row() {
+            Radio({ value: '10', group: 'materialLevel' })
+              .checked(this.materialLevel === hdsMaterial.MaterialLevel.ADAPTIVE)
+              .onChange((isChecked: boolean) => {
+                if (isChecked) { this.onMaterialLevelSelected(hdsMaterial.MaterialLevel.ADAPTIVE); }
+              })
+            Text('自适应')
+              .fontSize(14)
+              .fontColor($r('app.color.text_secondary'))
+              .margin({ left: 8 })
+            Text('（推荐）系统按算力动态调整')
+              .fontSize(12)
+              .fontColor($r('app.color.text_hint'))
+          }
+          .width('100%')
+          .height(44)
+          .padding({ left: 16, right: 16 })
+
+          Row() {
+            Radio({ value: '0', group: 'materialLevel' })
+              .checked(this.materialLevel === hdsMaterial.MaterialLevel.EXQUISITE)
+              .onChange((isChecked: boolean) => {
+                if (isChecked) { this.onMaterialLevelSelected(hdsMaterial.MaterialLevel.EXQUISITE); }
+              })
+            Text('精美')
+              .fontSize(14)
+              .fontColor(this.materialImmersiveSupported ? $r('app.color.text_secondary') : $r('app.color.text_hint'))
+              .margin({ left: 8 })
+            Text('（最强效果）')
+              .fontSize(12)
+              .fontColor($r('app.color.text_hint'))
+          }
+          .width('100%')
+          .height(44)
+          .padding({ left: 16, right: 16 })
+
+          Row() {
+            Radio({ value: '1', group: 'materialLevel' })
+              .checked(this.materialLevel === hdsMaterial.MaterialLevel.GENTLE)
+              .onChange((isChecked: boolean) => {
+                if (isChecked) { this.onMaterialLevelSelected(hdsMaterial.MaterialLevel.GENTLE); }
+              })
+            Text('轻柔')
+              .fontSize(14)
+              .fontColor(this.materialImmersiveSupported ? $r('app.color.text_secondary') : $r('app.color.text_hint'))
+              .margin({ left: 8 })
+          }
+          .width('100%')
+          .height(44)
+          .padding({ left: 16, right: 16 })
+
+          Row() {
+            Radio({ value: '2', group: 'materialLevel' })
+              .checked(this.materialLevel === hdsMaterial.MaterialLevel.SMOOTH)
+              .onChange((isChecked: boolean) => {
+                if (isChecked) { this.onMaterialLevelSelected(hdsMaterial.MaterialLevel.SMOOTH); }
+              })
+            Text('流畅')
+              .fontSize(14)
+              .fontColor($r('app.color.text_secondary'))
+              .margin({ left: 8 })
+            Text('（性能开销最小）')
+              .fontSize(12)
+              .fontColor($r('app.color.text_hint'))
+          }
+          .width('100%')
+          .height(44)
+          .padding({ left: 16, right: 16 })
+
+          if (!this.materialImmersiveSupported) {
+            Text('当前设备不支持沉浸式材质，精美/轻柔已自动降级为流畅')
+              .fontSize(11)
+              .fontColor($r('app.color.text_hint'))
+              .width('100%')
+              .padding({ left: 16, bottom: 8 })
+          }
+        }
+        .width('92%')
+        .backgroundColor($r('app.color.card_background'))
+        .borderRadius(12)
+        .margin({ top: 12 })
 
         Column() {
           Row() {
