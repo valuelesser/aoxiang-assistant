@@ -273,7 +273,7 @@ export class WidgetDataBuilder {
     const ok: boolean = balance >= 0;
     const payload: Record<string, Object> = {
       'value': ok ? balance.toFixed(2) : '--',
-      'unit': '元',
+      'unit': '度',
       'empty': !ok,
       'hint': ok ? '' : '打开应用查询电费',
       'updated': ok ? WidgetDataBuilder.timeLabel(now) : '',

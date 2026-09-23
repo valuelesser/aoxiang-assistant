@@ -11,6 +11,7 @@ import { WeekUtils } from '../model/WeekUtils';
 import { IcsExport } from '../model/IcsExport';
 import { AppLogger } from '../model/AppLogger';
 import { ScheduleGrid } from '../components/ScheduleGrid';
+import { ScheduleTimes } from '../model/ScheduleTimes';
 import { Constants, LoginPhase, LoginTarget } from '../common/Constants';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { WidgetPusher } from '../model/WidgetPusher';
@@ -56,6 +57,7 @@ struct Index {
   @State pendingSemDate: Date = new Date();
   @State showCourseDetail: boolean = false;
   @State detailCourse: Course | undefined = undefined;
+  @State detailSlot: TimeSlot | undefined = undefined;
   @State showConfirmDialog: boolean = false;
   @State confirmTitle: string = '';
   @State confirmMessage: string = '';
@@ -819,7 +821,7 @@ struct Index {
             this.pushWidgetData();
             this.stopPolling();
             this.showWebView = false;
-            this.statusText = `电费余额: ${balance.toFixed(2)} 元`;
+            this.statusText = `电费余额: ${balance.toFixed(2)} 度`;
             this.currentTab = 0;
             this.tabsController.changeIndex(0);
             console.info(`electricity saved: balance=${this.electricityBalance} text=${this.electricityBalanceText()} showWebView=${this.showWebView} currentTab=${this.currentTab}`);
@@ -905,7 +907,7 @@ struct Index {
             this.pushWidgetData();
             this.stopPolling();
             this.showWebView = false;
-            this.statusText = `电费余额: ${balance.toFixed(2)} 元`;
+            this.statusText = `电费余额: ${balance.toFixed(2)} 度`;
             this.currentTab = 0;
             this.tabsController.changeIndex(0);
             console.info(`electricity_api saved: balance=${balance}`);
@@ -1170,6 +1172,10 @@ struct Index {
       if (this.showCourseColorDialog) {
         this.CourseColorDialog()
       }
+
+      if (this.showCourseDetail) {
+        this.CourseDetailDialog()
+      }
     }
     .width('100%')
     .height('100%')
@@ -1341,7 +1347,7 @@ struct Index {
             .fontWeight(FontWeight.Bold)
             .fontColor($r('app.color.text_secondary'))
             .margin({ top: 4, bottom: 2 })
-          Text('元')
+          Text('度')
             .fontSize(10)
             .fontColor($r('app.color.text_hint'))
         }
@@ -1588,6 +1594,11 @@ struct Index {
             courses: this.currentSemesterCourses(),
             week: this.selectedWeek(),
             weekStartDate: this.selectedWeekStartDate(),
+            onCourseClick: (course: Course, slot: TimeSlot) => {
+              this.detailCourse = course;
+              this.detailSlot = slot;
+              this.showCourseDetail = true;
+            }
           })
         }
         .width('92%')
@@ -2876,6 +2887,174 @@ struct Index {
     .justifyContent(FlexAlign.Center)
     .backgroundColor($r('app.color.overlay_dim'))
     .zIndex(15)
+  }
+
+  @Builder
+  CourseDetailDialog() {
+    Stack({ alignContent: Alignment.Center }) {
+      Column()
+        .width('100%')
+        .height('100%')
+        .backgroundColor($r('app.color.overlay_dim'))
+        .onClick(() => {
+          this.closeCourseDetail();
+        })
+
+      Column() {
+        if (this.detailCourse !== undefined) {
+          Row() {
+            Row()
+              .width(36)
+              .height(36)
+              .borderRadius(18)
+              .backgroundColor(this.detailCourse.getColor())
+              .border({ width: 2, color: Color.White, radius: 18 })
+
+            Column() {
+              Text(this.detailCourse.name)
+                .fontSize(17)
+                .fontWeight(FontWeight.Bold)
+                .fontColor($r('app.color.text_secondary'))
+                .maxLines(2)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+              if (this.detailCourse.code.length > 0) {
+                Text(this.detailCourse.code)
+                  .fontSize(11)
+                  .fontColor($r('app.color.text_hint'))
+                  .margin({ top: 2 })
+              }
+            }
+            .alignItems(HorizontalAlign.Start)
+            .layoutWeight(1)
+            .margin({ left: 12 })
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
+
+          if (this.detailSlot !== undefined) {
+            Column() {
+              Text(this.detailSlotTimeText(this.detailSlot))
+                .fontSize(13)
+                .fontWeight(FontWeight.Bold)
+                .fontColor($r('app.color.accent'))
+                .width('100%')
+                .textAlign(TextAlign.Start)
+              ForEach(this.detailLinesFor(this.detailSlot), (line: string, li: number) => {
+                Text(line)
+                  .fontSize(12)
+                  .fontColor($r('app.color.text_secondary'))
+                  .width('100%')
+                  .textAlign(TextAlign.Start)
+                  .margin({ top: li === 0 ? 4 : 2 })
+              }, (line: string, li: number) => `cdl_${li}_${line}`)
+            }
+            .width('100%')
+            .padding(12)
+            .borderRadius(10)
+            .backgroundColor($r('app.color.schedule_bg'))
+            .border({ width: 1, color: $r('app.color.accent'), radius: 10 })
+            .margin({ top: 16 })
+          }
+
+          if (this.detailCourse.timeSlots.length > 1) {
+            Text('全部时间')
+              .fontSize(12)
+              .fontColor($r('app.color.text_hint'))
+              .width('100%')
+              .textAlign(TextAlign.Start)
+              .margin({ top: 16, bottom: 4 })
+
+            ForEach(this.detailCourse.timeSlots, (slot: TimeSlot, sIdx: number) => {
+              Row() {
+                if (this.isDetailSlot(slot)) {
+                  Row()
+                    .width(3)
+                    .height(28)
+                    .backgroundColor($r('app.color.accent'))
+                    .borderRadius(2)
+                }
+                Column() {
+                  ForEach(this.detailLinesFor(slot), (line: string, li: number) => {
+                    Text(line)
+                      .fontSize(11)
+                      .fontColor(this.isDetailSlot(slot) ? $r('app.color.text_secondary') : $r('app.color.text_hint'))
+                      .width('100%')
+                      .textAlign(TextAlign.Start)
+                      .margin({ top: li === 0 ? 0 : 1 })
+                  }, (line: string, li: number) => `dsl_${sIdx}_${li}_${line}`)
+                }
+                .layoutWeight(1)
+                .alignItems(HorizontalAlign.Start)
+                .margin({ left: this.isDetailSlot(slot) ? 8 : 0 })
+              }
+              .width('100%')
+              .alignItems(VerticalAlign.Center)
+              .margin({ top: sIdx === 0 ? 0 : 6 })
+            }, (slot: TimeSlot, sIdx: number) => `ds_${sIdx}_${slot.dayOfWeek}_${slot.sectionStart}_${slot.weekRange}_${slot.location}`)
+          } else if (this.detailCourse.timeSlots.length === 0) {
+            Text(this.detailCourse.scheduleText)
+              .fontSize(12)
+              .fontColor($r('app.color.text_hint'))
+              .width('100%')
+              .textAlign(TextAlign.Start)
+              .margin({ top: 12 })
+          }
+
+          Row() {
+            Button('关闭')
+              .layoutWeight(1)
+              .height(44)
+              .backgroundColor(Color.Transparent)
+              .fontColor($r('app.color.text_hint'))
+              .fontSize(14)
+              .border({ width: 1, color: $r('app.color.border_light'), radius: 8 })
+              .onClick(() => {
+                this.closeCourseDetail();
+              })
+          }
+          .width('100%')
+          .margin({ top: 16 })
+        }
+      }
+      .width('86%')
+      .backgroundColor($r('app.color.card_background'))
+      .borderRadius(16)
+      .padding(22)
+    }
+    .width('100%')
+    .height('100%')
+    .zIndex(15)
+  }
+
+  private closeCourseDetail(): void {
+    this.showCourseDetail = false;
+    this.detailCourse = undefined;
+    this.detailSlot = undefined;
+  }
+
+  private detailLinesFor(slot: TimeSlot): string[] {
+    if (this.detailCourse === undefined) {
+      return [];
+    }
+    return this.slotDetailLines(slot, this.detailCourse);
+  }
+
+  private detailSlotTimeText(slot: TimeSlot): string {
+    const campus: string = slot.campus.length > 0 ? slot.campus : '长安校区';
+    const end: number = slot.sectionEnd >= slot.sectionStart ? slot.sectionEnd : slot.sectionStart;
+    const span: string = ScheduleTimes.timeSpanFor(campus, new Date(), slot.sectionStart, end);
+    const sec: string = `${slot.sectionStart}${end > slot.sectionStart ? '-' + end : ''}节`;
+    return span.length > 0 ? `${sec} ${span}` : sec;
+  }
+
+  private isDetailSlot(slot: TimeSlot): boolean {
+    if (this.detailSlot === undefined) {
+      return false;
+    }
+    return slot.dayOfWeek === this.detailSlot.dayOfWeek &&
+      slot.sectionStart === this.detailSlot.sectionStart &&
+      slot.weekRange === this.detailSlot.weekRange &&
+      slot.location === this.detailSlot.location;
   }
 
   private colorRowIndices(): number[][] {
