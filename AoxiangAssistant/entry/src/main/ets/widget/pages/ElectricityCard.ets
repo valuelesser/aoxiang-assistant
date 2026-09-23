@@ -5,7 +5,7 @@ const elecStorage = new LocalStorage();
 struct ElectricityCard {
   @LocalStorageProp('cardData') @Watch('onDataChanged') cardData: string = '';
   @State value: string = '--';
-  @State unit: string = '元';
+  @State unit: string = '度';
   @State empty: boolean = true;
   @State hint: string = '打开应用查询电费';
   @State updated: string = '';
@@ -23,7 +23,7 @@ struct ElectricityCard {
       try {
         const obj: Record<string, Object> = JSON.parse(this.cardData) as Record<string, Object>;
         this.value = (obj['value'] ?? '--') as string;
-        this.unit = (obj['unit'] ?? '元') as string;
+        this.unit = (obj['unit'] ?? '度') as string;
         this.empty = (obj['empty'] ?? true) === true;
         this.hint = (obj['hint'] ?? '打开应用查询电费') as string;
         this.updated = (obj['updated'] ?? '') as string;

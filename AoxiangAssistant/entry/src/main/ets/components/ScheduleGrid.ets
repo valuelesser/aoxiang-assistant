@@ -25,6 +25,9 @@ export struct ScheduleGrid {
   @Prop week: number = 1;
   @Prop weekStartDate: string = '';
 
+  onCourseClick: (course: Course, slot: TimeSlot) => void =
+    (_course: Course, _slot: TimeSlot) => {};
+
   private readonly MAX_SECTIONS: number = 13;
   private readonly CELL_HEIGHT: number = 52;
   private readonly TIME_COL_WIDTH: number = 36;
@@ -318,6 +321,9 @@ export struct ScheduleGrid {
     .backgroundColor(course.getColor())
     .borderWidth(0.5)
     .borderColor(course.getColor())
+    .onClick(() => {
+      this.onCourseClick(course, slot);
+    })
   }
 
   private blockSpan(slot: TimeSlot, blockEndSection: number): number {
