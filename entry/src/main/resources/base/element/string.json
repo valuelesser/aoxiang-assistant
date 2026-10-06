@@ -10,7 +10,7 @@
     },
     {
       "name": "EntryAbility_label",
-      "value": "AoxiangAssistant"
+      "value": "翱翔助手"
     },
     {
       "name": "EntryFormAbility_desc",
@@ -18,7 +18,7 @@
     },
     {
       "name": "EntryFormAbility_label",
-      "value": "AoxiangAssistantWidget"
+      "value": "翱翔助手小组件"
     },
     {
       "name": "widget_daily_name",

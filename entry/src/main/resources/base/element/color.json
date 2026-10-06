@@ -33,6 +33,10 @@
       "value": "#4A6CF7"
     },
     {
+      "name": "accent_strong",
+      "value": "#3A5BE0"
+    },
+    {
       "name": "divider",
       "value": "#EEEEEE"
     },
@@ -61,6 +65,10 @@
       "value": "#CC3333"
     },
     {
+      "name": "danger_strong",
+      "value": "#B32B2B"
+    },
+    {
       "name": "button_secondary",
       "value": "#6C7B95"
     },
@@ -71,6 +79,34 @@
     {
       "name": "border_light",
       "value": "#DDDDDD"
+    },
+    {
+      "name": "widget_card_bg",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "widget_card_stroke",
+      "value": "#DCE3EB"
+    },
+    {
+      "name": "widget_row_bg",
+      "value": "#F6FAFF"
+    },
+    {
+      "name": "widget_name_text",
+      "value": "#19324D"
+    },
+    {
+      "name": "widget_muted_text",
+      "value": "#5E7185"
+    },
+    {
+      "name": "widget_divider",
+      "value": "#E5EDF5"
+    },
+    {
+      "name": "widget_content_divider",
+      "value": "#B6C4D2"
     }
   ]
 }

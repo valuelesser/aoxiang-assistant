@@ -35,18 +35,18 @@ struct ElectricityCard {
 
   build() {
     Column() {
-      Text('电费')
-        .fontSize(12)
-        .fontColor($r('app.color.text_primary'))
+      Text('剩余电费')
+        .fontSize(11)
+        .fontColor($r('app.color.widget_muted_text'))
         .fontWeight(FontWeight.Bold)
         .width('100%')
-        .textAlign(TextAlign.Start)
+        .textAlign(TextAlign.Center)
 
       if (this.empty) {
         Column() {
           Text(this.hint)
-            .fontSize(10)
-            .fontColor($r('app.color.text_hint'))
+            .fontSize(12)
+            .fontColor($r('app.color.widget_muted_text'))
             .textAlign(TextAlign.Center)
         }
         .width('100%')
@@ -56,22 +56,23 @@ struct ElectricityCard {
       } else {
         Row() {
           Text(this.value)
-            .fontSize(30)
-            .fontColor($r('app.color.balance_positive'))
+            .fontSize(28)
+            .fontColor($r('app.color.widget_name_text'))
             .fontWeight(FontWeight.Bold)
           Text(this.unit)
             .fontSize(12)
-            .fontColor($r('app.color.text_hint'))
-            .margin({ left: 4 })
+            .fontColor($r('app.color.widget_muted_text'))
+            .margin({ left: 2 })
         }
         .width('100%')
-        .justifyContent(FlexAlign.Center)
         .layoutWeight(1)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Bottom)
 
         if (this.updated.length > 0) {
           Text(`更新于 ${this.updated}`)
             .fontSize(9)
-            .fontColor($r('app.color.text_hint'))
+            .fontColor($r('app.color.widget_muted_text'))
             .width('100%')
             .textAlign(TextAlign.End)
         }
@@ -80,8 +81,9 @@ struct ElectricityCard {
     .width('100%')
     .height('100%')
     .padding(10)
-    .backgroundColor($r('app.color.card_background'))
-    .borderRadius(12)
+    .backgroundColor($r('app.color.widget_card_bg'))
+    .border({ width: 1, color: $r('app.color.widget_card_stroke') })
+    .borderRadius(16)
     .onClick(() => {
       postCardAction(this, {
         action: 'router',

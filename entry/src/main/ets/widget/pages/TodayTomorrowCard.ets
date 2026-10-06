@@ -74,9 +74,9 @@ struct TodayTomorrowCard {
         console.error(`TodayTomorrowCard parse error: ${e}`);
       }
     }
-    if (data.days.length === 0) {
+    while (data.days.length < 2) {
       const fallback: TTDay = new TTDay();
-      fallback.label = '今天';
+      fallback.label = data.days.length === 0 ? '今天' : '明天';
       fallback.empty = true;
       data.days.push(fallback);
     }
@@ -85,109 +85,158 @@ struct TodayTomorrowCard {
     this.days = data.days;
   }
 
+  private dayAt(index: number): TTDay {
+    return this.days[index];
+  }
+
+  private timeLine(item: TTCourse): string {
+    if (item.section.length > 0 && item.time.length > 0) {
+      return `${item.section}  ${item.time}`;
+    }
+    return item.time.length > 0 ? item.time : item.section;
+  }
+
+  private hasAnyCourse(): boolean {
+    return this.dayAt(0).courses.length > 0 || this.dayAt(1).courses.length > 0;
+  }
+
+  private emptyText(dayIndex: number): string {
+    return this.dayAt(dayIndex).label === '明天' ? '明天没有课了' : '今天没有课了';
+  }
+
   @Builder
-  CourseItem(item: TTCourse) {
+  CourseRow(item: TTCourse) {
     Column() {
-      Text(item.section)
-        .fontSize(8)
-        .fontColor(Color.White)
-        .fontWeight(FontWeight.Bold)
-        .maxLines(1)
-      Text(item.name)
+      Row() {
+        Text('●')
+          .fontSize(10)
+          .fontColor(item.color)
+          .width(10)
+          .textAlign(TextAlign.Start)
+        Text(item.name)
+          .fontSize(11)
+          .fontColor($r('app.color.widget_name_text'))
+          .fontWeight(FontWeight.Bold)
+          .layoutWeight(1)
+      }
+      .width('100%')
+
+      Text(this.timeLine(item))
         .fontSize(10)
-        .fontColor(Color.White)
-        .fontWeight(FontWeight.Medium)
-        .maxLines(2)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .fontColor($r('app.color.widget_muted_text'))
         .margin({ top: 1 })
+        .width('100%')
+
       if (item.loc.length > 0) {
         Text(item.loc)
-          .fontSize(8)
-          .fontColor('#FFFFFFCC')
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .fontSize(10)
+          .fontColor($r('app.color.widget_muted_text'))
           .margin({ top: 1 })
+          .width('100%')
       }
     }
     .width('100%')
     .padding(5)
     .borderRadius(5)
-    .backgroundColor(item.color)
+    .backgroundColor($r('app.color.widget_row_bg'))
     .alignItems(HorizontalAlign.Start)
-    .margin({ bottom: 3 })
   }
 
   @Builder
-  DayColumn(day: TTDay) {
+  DayColumn(day: TTDay, dayIndex: number) {
     Column() {
-      Row() {
-        Text(day.label)
-          .fontSize(10)
-          .fontColor($r('app.color.text_primary'))
-          .fontWeight(FontWeight.Bold)
-        if (day.date.length > 0) {
-          Text(day.date)
-            .fontSize(9)
-            .fontColor($r('app.color.text_hint'))
-            .margin({ left: 4 })
-        }
-      }
-      .width('100%')
-      .margin({ bottom: 3 })
-
       if (day.courses.length > 0) {
-        ForEach(day.courses, (item: TTCourse, idx: number) => {
-          this.CourseItem(item)
-        }, (item: TTCourse, idx: number) => `${item.section}_${item.name}_${idx}`)
+        List({ space: 4 }) {
+          ForEach(day.courses, (item: TTCourse, idx: number) => {
+            ListItem() {
+              this.CourseRow(item)
+            }
+          }, (item: TTCourse, idx: number) => `c_${dayIndex}_${idx}_${item.name}_${item.section}`)
+        }
+        .width('100%')
+        .height('100%')
+        .scrollBar(BarState.Auto)
       } else {
-        Text('暂无课程')
-          .fontSize(10)
-          .fontColor($r('app.color.text_hint'))
+        Column() {
+          Text(this.emptyText(dayIndex))
+            .fontSize(10)
+            .fontColor($r('app.color.widget_muted_text'))
+            .textAlign(TextAlign.Center)
+        }
+        .width('100%')
+        .height('100%')
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
       }
     }
     .layoutWeight(1)
-    .alignItems(HorizontalAlign.Start)
-    .padding({ left: 4, right: 4 })
     .height('100%')
+  }
+
+  @Builder
+  Header() {
+    Row() {
+      Text(this.dayAt(0).label)
+        .fontSize(12)
+        .fontColor($r('app.color.widget_muted_text'))
+        .fontWeight(FontWeight.Bold)
+        .layoutWeight(1)
+
+      Divider()
+        .vertical(true)
+        .strokeWidth(1)
+        .color($r('app.color.widget_divider'))
+        .height(12)
+        .margin({ left: 7, right: 7 })
+
+      Text(this.dayAt(1).label)
+        .fontSize(12)
+        .fontColor($r('app.color.widget_muted_text'))
+        .fontWeight(FontWeight.Bold)
+        .layoutWeight(1)
+    }
+    .width('100%')
+    .padding({ bottom: 4 })
   }
 
   build() {
     Column() {
-      Row() {
-        Text(this.title)
-          .fontSize(12)
-          .fontColor($r('app.color.text_primary'))
-          .fontWeight(FontWeight.Bold)
-      }
-      .width('100%')
-      .justifyContent(FlexAlign.Start)
-      .margin({ bottom: 4 })
+      this.Header()
 
-      if (this.hint.length > 0) {
-        Text(this.hint)
-          .fontSize(10)
-          .fontColor($r('app.color.text_hint'))
-          .textAlign(TextAlign.Center)
-          .width('100%')
-          .layoutWeight(1)
-      } else {
-        Row({
-          space: 4
-        }) {
-          ForEach(this.days, (day: TTDay, idx: number) => {
-            this.DayColumn(day)
-          }, (day: TTDay, idx: number) => `day_${idx}_${day.label}`)
+      if (this.hasAnyCourse()) {
+        Row() {
+          this.DayColumn(this.dayAt(0), 0)
+
+          Divider()
+            .vertical(true)
+            .strokeWidth(1)
+            .color($r('app.color.widget_divider'))
+            .margin({ left: 7, right: 7 })
+
+          this.DayColumn(this.dayAt(1), 1)
         }
         .width('100%')
         .layoutWeight(1)
         .alignItems(VerticalAlign.Top)
+      } else {
+        Column() {
+          Text(this.hint.length > 0 ? this.hint : '今天和明天都没有课')
+            .fontSize(12)
+            .fontColor($r('app.color.widget_muted_text'))
+            .textAlign(TextAlign.Center)
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
       }
     }
     .width('100%')
     .height('100%')
     .padding(10)
-    .backgroundColor($r('app.color.card_background'))
-    .borderRadius(12)
+    .backgroundColor($r('app.color.widget_card_bg'))
+    .border({ width: 1, color: $r('app.color.widget_card_stroke') })
+    .borderRadius(16)
     .onClick(() => {
       postCardAction(this, {
         action: 'router',

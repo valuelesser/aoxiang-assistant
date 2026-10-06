@@ -89,50 +89,79 @@ struct WeeklyCard {
   }
 
   @Builder
-  DayColumn(day: WDay) {
+  CourseRow(item: WCourse) {
+    Row() {
+      Text('●')
+        .fontSize(10)
+        .fontColor(item.color)
+        .width(14)
+        .textAlign(TextAlign.Start)
+
+      Column() {
+        Text(item.name)
+          .fontSize(11)
+          .fontColor($r('app.color.widget_name_text'))
+          .fontWeight(FontWeight.Bold)
+          .width('100%')
+        if (item.time.length > 0) {
+          Text(item.time)
+            .fontSize(10)
+            .fontColor($r('app.color.widget_muted_text'))
+            .margin({ top: 1 })
+            .width('100%')
+        }
+        if (item.loc.length > 0) {
+          Text(item.loc)
+            .fontSize(10)
+            .fontColor($r('app.color.widget_muted_text'))
+            .margin({ top: 1 })
+            .width('100%')
+        }
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+    }
+    .width('100%')
+    .padding(5)
+    .borderRadius(5)
+    .backgroundColor($r('app.color.widget_row_bg'))
+    .constraintSize({ minHeight: 24 })
+    .alignItems(VerticalAlign.Top)
+    .margin({ bottom: 3 })
+  }
+
+  @Builder
+  DayBlock(day: WDay) {
     Column() {
       Row() {
         Text(day.label)
-          .fontSize(8)
-          .fontColor(day.today ? '#FFD54F' : $r('app.color.text_primary'))
+          .fontSize(11)
           .fontWeight(FontWeight.Bold)
+          .fontColor(day.today ? $r('app.color.accent') : $r('app.color.widget_name_text'))
+        if (day.date.length > 0) {
+          Text(day.date)
+            .fontSize(10)
+            .fontColor($r('app.color.widget_muted_text'))
+            .margin({ left: 4 })
+        }
       }
       .width('100%')
-      .justifyContent(FlexAlign.Center)
-      .margin({ bottom: 2 })
+      .margin({ bottom: 3 })
 
       if (day.courses.length > 0) {
         ForEach(day.courses, (item: WCourse, idx: number) => {
-          Column() {
-            Text(item.time.length > 0 ? item.time : item.name)
-              .fontSize(7)
-              .fontColor(Color.White)
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-            Text(item.name)
-              .fontSize(8)
-              .fontColor(Color.White)
-              .fontWeight(FontWeight.Medium)
-              .maxLines(2)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .margin({ top: 1 })
-          }
-          .width('100%')
-          .padding(3)
-          .borderRadius(4)
-          .backgroundColor(item.color)
-          .alignItems(HorizontalAlign.Start)
-          .margin({ bottom: 2 })
-        }, (item: WCourse, idx: number) => `${item.name}_${item.time}_${idx}`)
+          this.CourseRow(item)
+        }, (item: WCourse, idx: number) => `${day.label}_${item.name}_${item.time}_${idx}`)
       } else {
-        Text('')
-          .fontSize(1)
+        Text('暂无课程')
+          .fontSize(10)
+          .fontColor($r('app.color.widget_muted_text'))
+          .width('100%')
       }
     }
-    .layoutWeight(1)
-    .alignItems(HorizontalAlign.Center)
-    .padding({ left: 2, right: 2 })
-    .height('100%')
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+    .margin({ bottom: 4 })
   }
 
   build() {
@@ -140,38 +169,43 @@ struct WeeklyCard {
       Row() {
         Text(this.title)
           .fontSize(12)
-          .fontColor($r('app.color.text_primary'))
+          .fontColor($r('app.color.widget_muted_text'))
           .fontWeight(FontWeight.Bold)
       }
       .width('100%')
       .justifyContent(FlexAlign.Start)
-      .margin({ bottom: 4 })
+      .padding({ bottom: 4 })
 
       if (this.hint.length > 0) {
-        Text(this.hint)
-          .fontSize(10)
-          .fontColor($r('app.color.text_hint'))
-          .textAlign(TextAlign.Center)
-          .width('100%')
-          .layoutWeight(1)
-      } else {
-        Row({
-          space: 2
-        }) {
-          ForEach(this.days, (day: WDay, idx: number) => {
-            this.DayColumn(day)
-          }, (day: WDay, idx: number) => `wday_${idx}_${day.label}`)
+        Column() {
+          Text(this.hint)
+            .fontSize(12)
+            .fontColor($r('app.color.widget_muted_text'))
+            .textAlign(TextAlign.Center)
         }
         .width('100%')
         .layoutWeight(1)
-        .alignItems(VerticalAlign.Top)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
+      } else {
+        List({ space: 4 }) {
+          ForEach(this.days, (day: WDay, idx: number) => {
+            ListItem() {
+              this.DayBlock(day)
+            }
+          }, (day: WDay, idx: number) => `wday_${idx}_${day.label}`)
+        }
+        .layoutWeight(1)
+        .width('100%')
+        .scrollBar(BarState.Auto)
       }
     }
     .width('100%')
     .height('100%')
-    .padding(8)
-    .backgroundColor($r('app.color.card_background'))
-    .borderRadius(12)
+    .padding(10)
+    .backgroundColor($r('app.color.widget_card_bg'))
+    .border({ width: 1, color: $r('app.color.widget_card_stroke') })
+    .borderRadius(16)
     .onClick(() => {
       postCardAction(this, {
         action: 'router',
