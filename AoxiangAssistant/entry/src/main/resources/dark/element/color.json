@@ -2,51 +2,55 @@
   "color": [
     {
       "name": "start_window_background",
-      "value": "#000000"
+      "value": "#0E1116"
     },
     {
       "name": "page_background",
-      "value": "#111519"
+      "value": "#0E1116"
     },
     {
       "name": "card_background",
-      "value": "#1C222B"
+      "value": "#191D24"
     },
     {
       "name": "text_primary",
-      "value": "#F5F8FC"
+      "value": "#E9EEF5"
     },
     {
       "name": "text_secondary",
-      "value": "#D0D8E4"
+      "value": "#BCC6D4"
     },
     {
       "name": "text_tertiary",
-      "value": "#9CB0C7"
+      "value": "#94A1B2"
     },
     {
       "name": "text_hint",
-      "value": "#6B7D93"
+      "value": "#7E8A99"
     },
     {
       "name": "accent",
-      "value": "#5B7FF7"
+      "value": "#7E97F7"
+    },
+    {
+      "name": "accent_strong",
+      "value": "#3D63DD"
     },
     {
       "name": "divider",
-      "value": "#353E4A"
+      "value": "#2A313B"
     },
     {
       "name": "schedule_bg",
-      "value": "#111519"
+      "value": "#161A20"
     },
     {
       "name": "schedule_line",
-      "value": "#353E4A"
+      "value": "#262C35"
     },
     {
       "name": "schedule_empty_bg",
-      "value": "#1C222B"
+      "value": "#1F242C"
     },
     {
       "name": "overlay_dim",
@@ -54,23 +58,55 @@
     },
     {
       "name": "tab_bar_bg",
-      "value": "#F01C222B"
+      "value": "#F0161A20"
     },
     {
       "name": "danger",
-      "value": "#E04040"
+      "value": "#EF5F5B"
+    },
+    {
+      "name": "danger_strong",
+      "value": "#B93D3D"
     },
     {
       "name": "button_secondary",
-      "value": "#5A6A80"
+      "value": "#8A97A8"
     },
     {
       "name": "balance_positive",
-      "value": "#66BB6A"
+      "value": "#57B96B"
     },
     {
       "name": "border_light",
-      "value": "#3A4555"
+      "value": "#2E3540"
+    },
+    {
+      "name": "widget_card_bg",
+      "value": "#17212B"
+    },
+    {
+      "name": "widget_card_stroke",
+      "value": "#3B4654"
+    },
+    {
+      "name": "widget_row_bg",
+      "value": "#1C222B"
+    },
+    {
+      "name": "widget_name_text",
+      "value": "#F5F8FC"
+    },
+    {
+      "name": "widget_muted_text",
+      "value": "#9CB0C7"
+    },
+    {
+      "name": "widget_divider",
+      "value": "#3B4654"
+    },
+    {
+      "name": "widget_content_divider",
+      "value": "#4A5666"
     }
   ]
 }

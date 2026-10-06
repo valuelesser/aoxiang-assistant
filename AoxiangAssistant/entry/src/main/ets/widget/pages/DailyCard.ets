@@ -69,90 +69,93 @@ struct DailyCard {
     this.courses = data.courses;
   }
 
-  private hasCourses(): boolean {
-    return this.courses.length > 0;
+  private timeLine(item: CardCourse): string {
+    if (item.section.length > 0 && item.time.length > 0) {
+      return `${item.section}  ${item.time}`;
+    }
+    return item.time.length > 0 ? item.time : item.section;
+  }
+
+  private emptyHint(): string {
+    return this.hint.length > 0 ? this.hint : '今天没有课了';
   }
 
   @Builder
-  CourseItem(item: CardCourse) {
+  Header() {
     Row() {
-      Column() {
-        Text(item.section)
+      Text('今日课程')
+        .fontSize(11)
+        .fontColor($r('app.color.widget_muted_text'))
+        .fontWeight(FontWeight.Bold)
+      if (this.date.length > 0) {
+        Text(this.date)
           .fontSize(10)
-          .fontColor(Color.White)
-          .fontWeight(FontWeight.Bold)
-        if (item.time.length > 0) {
-          Text(item.time)
-            .fontSize(9)
-            .fontColor(Color.White)
-            .margin({ top: 1 })
-        }
+          .fontColor($r('app.color.widget_muted_text'))
+          .margin({ left: 4 })
       }
-      .alignItems(HorizontalAlign.Center)
-      .width('28%')
+    }
+    .width('100%')
+    .padding({ bottom: 3 })
+  }
+
+  @Builder
+  CourseRow(item: CardCourse) {
+    Row() {
+      Text('●')
+        .fontSize(10)
+        .fontColor(item.color)
+        .width(10)
+        .textAlign(TextAlign.Start)
 
       Column() {
         Text(item.name)
           .fontSize(11)
-          .fontColor(Color.White)
-          .fontWeight(FontWeight.Medium)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .fontColor($r('app.color.widget_name_text'))
+          .fontWeight(FontWeight.Bold)
+          .width('100%')
+        Text(this.timeLine(item))
+          .fontSize(10)
+          .fontColor($r('app.color.widget_muted_text'))
+          .margin({ top: 1 })
+          .width('100%')
         if (item.loc.length > 0) {
           Text(item.loc)
-            .fontSize(9)
-            .fontColor(Color.White)
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .fontSize(10)
+            .fontColor($r('app.color.widget_muted_text'))
             .margin({ top: 1 })
-        }
-        if (item.teacher.length > 0) {
-          Text(item.teacher)
-            .fontSize(9)
-            .fontColor(Color.White)
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .margin({ top: 1 })
+            .width('100%')
         }
       }
-      .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
-      .margin({ left: 6 })
+      .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
-    .padding(6)
-    .borderRadius(6)
-    .backgroundColor(item.color)
-    .margin({ bottom: 4 })
+    .padding(5)
+    .borderRadius(5)
+    .backgroundColor($r('app.color.widget_row_bg'))
+    .alignItems(VerticalAlign.Top)
   }
 
   build() {
     Column() {
-      Row() {
-        Text(this.title)
-          .fontSize(12)
-          .fontColor($r('app.color.text_primary'))
-          .fontWeight(FontWeight.Bold)
-        if (this.date.length > 0) {
-          Text(this.date)
-            .fontSize(10)
-            .fontColor($r('app.color.text_hint'))
-            .margin({ left: 6 })
-        }
-      }
-      .width('100%')
-      .justifyContent(FlexAlign.Start)
-      .margin({ bottom: 4 })
+      this.Header()
 
       if (this.courses.length > 0) {
-        ForEach(this.courses, (item: CardCourse, idx: number) => {
-          this.CourseItem(item)
-        }, (item: CardCourse, idx: number) => `${item.section}_${item.name}_${idx}`)
+        List({ space: 3 }) {
+          ForEach(this.courses, (item: CardCourse, idx: number) => {
+            ListItem() {
+              this.CourseRow(item)
+            }
+          }, (item: CardCourse, idx: number) => `${item.section}_${item.name}_${idx}`)
+        }
+        .layoutWeight(1)
+        .width('100%')
+        .scrollBar(BarState.Auto)
       } else {
         Column() {
-          Text(this.hint.length > 0 ? this.hint : '今日无课')
-            .fontSize(11)
-            .fontColor($r('app.color.text_hint'))
+          Text(this.emptyHint())
+            .fontSize(12)
+            .fontColor($r('app.color.widget_muted_text'))
             .textAlign(TextAlign.Center)
         }
         .width('100%')
@@ -164,8 +167,9 @@ struct DailyCard {
     .width('100%')
     .height('100%')
     .padding(10)
-    .backgroundColor($r('app.color.card_background'))
-    .borderRadius(12)
+    .backgroundColor($r('app.color.widget_card_bg'))
+    .border({ width: 1, color: $r('app.color.widget_card_stroke') })
+    .borderRadius(16)
     .onClick(() => {
       postCardAction(this, {
         action: 'router',
