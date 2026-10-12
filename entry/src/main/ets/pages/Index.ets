@@ -113,6 +113,34 @@ struct Index {
     this.autoCheckUpdate();
   }
 
+  onBackPress(): boolean {
+    if (this.showUpdateView) {
+      this.showUpdateView = false;
+      return true;
+    }
+    if (this.showUpdatePrompt) {
+      this.showUpdatePrompt = false;
+      return true;
+    }
+    if (this.showLoginForm || this.showSmsForm) {
+      this.showLoginForm = false;
+      this.showSmsForm = false;
+      this.stopPolling();
+      this.showWebView = false;
+      return true;
+    }
+    if (this.showCourseDetail || this.showCourseDialog || this.showCourseColorDialog ||
+        this.showSemesterDialog || this.showConfirmDialog) {
+      this.showCourseDetail = false;
+      this.showCourseDialog = false;
+      this.showCourseColorDialog = false;
+      this.showSemesterDialog = false;
+      this.showConfirmDialog = false;
+      return true;
+    }
+    return false;
+  }
+
   private pushWidgetData(): void {
     try {
       const context = getContext(this) as common.UIAbilityContext;
@@ -173,6 +201,36 @@ struct Index {
     }
   }
 
+  private updateAssetPath(): string {
+    const latest: ReleaseInfo | undefined = this.updateLatest;
+    if (latest === undefined) {
+      return '';
+    }
+    const asset: ReleaseAsset | undefined = Updater.hapAsset(latest);
+    if (asset === undefined) {
+      return '';
+    }
+    const context = getContext(this) as common.UIAbilityContext;
+    return Updater.downloadPathFor(context, asset.name);
+  }
+
+  private updateFileDownloaded(): boolean {
+    const path: string = this.updateAssetPath();
+    return path.length > 0 && Updater.fileExists(path);
+  }
+
+  private async openDownloadedUpdate(): Promise<void> {
+    const path: string = this.updateAssetPath();
+    if (path.length === 0) {
+      return;
+    }
+    const context = getContext(this) as common.UIAbilityContext;
+    const opened: boolean = await Updater.openHap(context, path);
+    if (!opened) {
+      this.updateStatusText = '无法自动打开安装器，请通过文件管理器安装';
+    }
+  }
+
   private async startDownload(): Promise<void> {
     const latest: ReleaseInfo | undefined = this.updateLatest;
     if (latest === undefined || this.updateDownloading) {
@@ -183,10 +241,18 @@ struct Index {
       this.updateStatusText = '该版本没有可下载的安装包';
       return;
     }
+    const context = getContext(this) as common.UIAbilityContext;
+    const target: string = Updater.downloadPathFor(context, asset.name);
+    if (Updater.fileExists(target)) {
+      this.updateDownloadPath = target;
+      this.updateProgressText = '安装包已下载';
+      const opened: boolean = await Updater.openHap(context, target);
+      this.updateStatusText = opened ? '已打开，请在系统弹窗中选择可打开安装包的应用' : '已下载，但无法自动打开安装器，请手动安装';
+      return;
+    }
     this.updateDownloading = true;
     this.updateProgress = 0;
     this.updateProgressText = '开始下载…';
-    const context = getContext(this) as common.UIAbilityContext;
     try {
       const path: string = await Updater.downloadHap(context, asset.url, asset.name,
         (received: number, total: number) => {
@@ -3563,7 +3629,15 @@ struct Index {
 
   @Builder
   UpdatePromptDialog() {
-    Column() {
+    Stack({ alignContent: Alignment.Center }) {
+      Column()
+        .width('100%')
+        .height('100%')
+        .backgroundColor($r('app.color.overlay_dim'))
+        .onClick(() => {
+          this.showUpdatePrompt = false;
+        })
+
       Column() {
         Text('发现新版本')
           .fontSize(16)
@@ -3617,84 +3691,86 @@ struct Index {
     }
     .width('100%')
     .height('100%')
-    .justifyContent(FlexAlign.Center)
-    .backgroundColor($r('app.color.overlay_dim'))
     .zIndex(16)
   }
 
   @Builder
   UpdateView() {
-    Column() {
-      Row() {
-        Button('‹ 返回')
-          .height(36)
-          .backgroundColor(Color.Transparent)
-          .fontColor($r('app.color.accent'))
-          .fontSize(14)
-          .onClick(() => {
-            this.showUpdateView = false;
-          })
+    Stack({ alignContent: Alignment.Center }) {
+      Column()
+        .width('100%')
+        .height('100%')
+        .backgroundColor($r('app.color.overlay_dim'))
+        .onClick(() => {
+          this.showUpdateView = false;
+        })
 
-        Text('检查更新')
-          .fontSize(18)
-          .fontColor($r('app.color.text_secondary'))
-          .fontWeight(FontWeight.Bold)
-          .margin({ left: 8 })
-      }
-      .width('100%')
-      .padding({ left: 16, right: 16, top: 14, bottom: 10 })
+      Column() {
+        Row() {
+          Text('检查更新')
+            .fontSize(18)
+            .fontColor($r('app.color.text_secondary'))
+            .fontWeight(FontWeight.Bold)
+          Blank()
+          Text('关闭')
+            .fontSize(14)
+            .fontColor($r('app.color.accent'))
+            .onClick(() => {
+              this.showUpdateView = false;
+            })
+        }
+        .width('100%')
+        .margin({ bottom: 8 })
 
-      Scroll() {
-        Column() {
+        Scroll() {
           Column() {
-            Text('更新源')
-              .fontSize(15)
-              .fontColor($r('app.color.text_secondary'))
-              .width('100%')
-              .padding({ left: 16, top: 12, bottom: 8 })
-
             Row() {
-              Button('atomgit')
-                .layoutWeight(1)
-                .height(38)
-                .backgroundColor(this.updateSource === UpdateSource.ATOM_GIT ? $r('app.color.accent_strong') : Color.Transparent)
-                .fontColor(this.updateSource === UpdateSource.ATOM_GIT ? Color.White : $r('app.color.text_secondary'))
-                .fontSize(13)
-                .borderRadius(8)
-                .onClick(() => {
-                  this.updateSource = UpdateSource.ATOM_GIT;
-                  this.updateLatest = undefined;
-                  this.updateStatusText = '';
-                  this.updateDownloadPath = '';
-                  this.updateProgress = 0;
-                  this.updateProgressText = '';
-                })
-
-              Button('GitHub')
-                .layoutWeight(1)
-                .height(38)
-                .backgroundColor(this.updateSource === UpdateSource.GITHUB ? $r('app.color.accent_strong') : Color.Transparent)
-                .fontColor(this.updateSource === UpdateSource.GITHUB ? Color.White : $r('app.color.text_secondary'))
-                .fontSize(13)
-                .borderRadius(8)
-                .margin({ left: 10 })
-                .onClick(() => {
-                  this.updateSource = UpdateSource.GITHUB;
-                  this.updateLatest = undefined;
-                  this.updateStatusText = '';
-                  this.updateDownloadPath = '';
-                  this.updateProgress = 0;
-                  this.updateProgressText = '';
-                })
+              Text('更新源')
+                .fontSize(14)
+                .fontColor($r('app.color.text_secondary'))
+              Blank()
+              Row() {
+                Text('atomgit')
+                  .fontSize(13)
+                  .fontColor(this.updateSource === UpdateSource.ATOM_GIT ? Color.White : $r('app.color.text_secondary'))
+                  .padding({ left: 14, right: 14, top: 7, bottom: 7 })
+                  .borderRadius(8)
+                  .backgroundColor(this.updateSource === UpdateSource.ATOM_GIT ? $r('app.color.accent_strong') : Color.Transparent)
+                  .border(this.updateSource === UpdateSource.ATOM_GIT ? { width: 0 } : { width: 1, color: $r('app.color.border_light'), radius: 8 })
+                  .onClick(() => {
+                    this.updateSource = UpdateSource.ATOM_GIT;
+                    this.updateLatest = undefined;
+                    this.updateStatusText = '';
+                    this.updateDownloadPath = '';
+                    this.updateProgress = 0;
+                    this.updateProgressText = '';
+                  })
+                Text('GitHub')
+                  .fontSize(13)
+                  .fontColor(this.updateSource === UpdateSource.GITHUB ? Color.White : $r('app.color.text_secondary'))
+                  .padding({ left: 14, right: 14, top: 7, bottom: 7 })
+                  .borderRadius(8)
+                  .backgroundColor(this.updateSource === UpdateSource.GITHUB ? $r('app.color.accent_strong') : Color.Transparent)
+                  .border(this.updateSource === UpdateSource.GITHUB ? { width: 0 } : { width: 1, color: $r('app.color.border_light'), radius: 8 })
+                  .margin({ left: 8 })
+                  .onClick(() => {
+                    this.updateSource = UpdateSource.GITHUB;
+                    this.updateLatest = undefined;
+                    this.updateStatusText = '';
+                    this.updateDownloadPath = '';
+                    this.updateProgress = 0;
+                    this.updateProgressText = '';
+                  })
+              }
             }
             .width('100%')
-            .padding({ left: 16, right: 16, bottom: 12 })
-          }
-          .width('92%')
-          .backgroundColor($r('app.color.card_background'))
-          .borderRadius(12)
+            .height(46)
 
-          Column() {
+            Row()
+              .width('100%')
+              .height(0.5)
+              .backgroundColor($r('app.color.divider'))
+
             Row() {
               Text('当前版本')
                 .fontSize(14)
@@ -3706,7 +3782,6 @@ struct Index {
             }
             .width('100%')
             .height(46)
-            .padding({ left: 16, right: 16 })
 
             Row()
               .width('100%')
@@ -3724,96 +3799,108 @@ struct Index {
             }
             .width('100%')
             .height(46)
-            .padding({ left: 16, right: 16 })
-          }
-          .width('92%')
-          .backgroundColor($r('app.color.card_background'))
-          .borderRadius(12)
-          .margin({ top: 12 })
 
-          Column() {
-            if (this.updateStatusText.length > 0) {
-              Text(this.updateStatusText)
-                .fontSize(13)
-                .fontColor($r('app.color.text_secondary'))
-                .width('100%')
-                .margin({ bottom: 10 })
-            }
-
-            Button(this.updateChecking ? '检查中…' : '检查更新')
+            Row()
               .width('100%')
-              .height(44)
-              .backgroundColor($r('app.color.accent_strong'))
-              .fontColor(Color.White)
-              .fontSize(14)
-              .borderRadius(8)
-              .enabled(!this.updateChecking && !this.updateDownloading)
-              .onClick(() => {
-                this.doCheckUpdate();
-              })
+              .height(0.5)
+              .backgroundColor($r('app.color.divider'))
 
-            if (this.hasNewUpdate()) {
-              Button(this.updateDownloading ? `下载中 ${this.updateProgress}%` : '下载安装包')
+            Column() {
+              if (this.updateStatusText.length > 0) {
+                Text(this.updateStatusText)
+                  .fontSize(13)
+                  .fontColor($r('app.color.text_secondary'))
+                  .width('100%')
+                  .margin({ bottom: 10 })
+              }
+
+              Button(this.updateChecking ? '检查中…' : '检查更新')
                 .width('100%')
                 .height(44)
                 .backgroundColor($r('app.color.accent_strong'))
                 .fontColor(Color.White)
                 .fontSize(14)
                 .borderRadius(8)
-                .margin({ top: 10 })
-                .enabled(!this.updateDownloading)
+                .enabled(!this.updateChecking && !this.updateDownloading)
                 .onClick(() => {
-                  this.startDownload();
+                  this.doCheckUpdate();
                 })
 
-              if (this.updateDownloading) {
-                Progress({ value: this.updateProgress, total: 100 })
-                  .width('100%')
-                  .color($r('app.color.accent'))
-                  .margin({ top: 8 })
-              }
+              if (this.hasNewUpdate()) {
+                if (this.updateFileDownloaded()) {
+                  Button('打开安装包')
+                    .width('100%')
+                    .height(44)
+                    .backgroundColor($r('app.color.accent_strong'))
+                    .fontColor(Color.White)
+                    .fontSize(14)
+                    .borderRadius(8)
+                    .margin({ top: 10 })
+                    .onClick(() => {
+                      this.openDownloadedUpdate();
+                    })
 
-              if (this.updateProgressText.length > 0) {
-                Text(this.updateProgressText)
-                  .fontSize(12)
-                  .fontColor($r('app.color.text_hint'))
-                  .width('100%')
-                  .margin({ top: 4 })
-              }
+                  Text('安装包已下载，可直接打开')
+                    .fontSize(12)
+                    .fontColor($r('app.color.text_hint'))
+                    .width('100%')
+                    .margin({ top: 4 })
+                } else if (this.updateDownloading) {
+                  Button(`下载中 ${this.updateProgress}%`)
+                    .width('100%')
+                    .height(44)
+                    .backgroundColor($r('app.color.accent_strong'))
+                    .fontColor(Color.White)
+                    .fontSize(14)
+                    .borderRadius(8)
+                    .margin({ top: 10 })
+                    .enabled(false)
 
-              if (this.updateDownloadPath.length > 0) {
-                Button('打开安装包')
-                  .width('100%')
-                  .height(44)
-                  .backgroundColor(Color.Transparent)
-                  .fontColor($r('app.color.accent'))
-                  .fontSize(14)
-                  .border({ width: 1, color: $r('app.color.accent'), radius: 8 })
-                  .margin({ top: 10 })
-                  .onClick(() => {
-                    const context = getContext(this) as common.UIAbilityContext;
-                    Updater.openHap(context, this.updateDownloadPath);
-                  })
+                  Progress({ value: this.updateProgress, total: 100 })
+                    .width('100%')
+                    .color($r('app.color.accent'))
+                    .margin({ top: 8 })
+
+                  if (this.updateProgressText.length > 0) {
+                    Text(this.updateProgressText)
+                      .fontSize(12)
+                      .fontColor($r('app.color.text_hint'))
+                      .width('100%')
+                      .margin({ top: 4 })
+                  }
+                } else {
+                  Button('下载安装包')
+                    .width('100%')
+                    .height(44)
+                    .backgroundColor($r('app.color.accent_strong'))
+                    .fontColor(Color.White)
+                    .fontSize(14)
+                    .borderRadius(8)
+                    .margin({ top: 10 })
+                    .onClick(() => {
+                      this.startDownload();
+                    })
+                }
               }
             }
+            .width('100%')
+            .margin({ top: 12 })
           }
-          .width('92%')
-          .backgroundColor($r('app.color.card_background'))
-          .borderRadius(12)
-          .margin({ top: 12 })
-          .padding(16)
+          .width('100%')
+          .alignItems(HorizontalAlign.Center)
+          .padding({ bottom: 8 })
         }
         .width('100%')
-        .alignItems(HorizontalAlign.Center)
-        .padding({ bottom: 40 })
+        .constraintSize({ maxHeight: '70%' })
+        .scrollBar(BarState.Auto)
       }
-      .width('100%')
-      .layoutWeight(1)
-      .scrollBar(BarState.Off)
+      .width('90%')
+      .backgroundColor($r('app.color.card_background'))
+      .borderRadius(16)
+      .padding(20)
     }
     .width('100%')
     .height('100%')
-    .backgroundColor($r('app.color.page_background'))
     .zIndex(16)
   }
 }

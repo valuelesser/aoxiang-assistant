@@ -1,4 +1,4 @@
-import { common, Want } from '@kit.AbilityKit';
+﻿import { common, Want } from '@kit.AbilityKit';
 import { http } from '@kit.NetworkKit';
 import { request } from '@kit.BasicServicesKit';
 import fs from '@ohos.file.fs';
@@ -151,13 +151,18 @@ export class Updater {
 
   static async downloadHap(context: common.Context, url: string, fileName: string,
                            onProgress: (received: number, total: number) => void): Promise<string> {
+    const filePath: string = Updater.downloadPathFor(context, fileName);
     const dir: string = `${context.filesDir}/updates`;
     try {
       fs.mkdirSync(dir, true);
     } catch (e) {
       console.error(`Updater.mkdir error: ${e}`);
     }
-    const filePath: string = `${dir}/${fileName}`;
+    try {
+      fs.unlinkSync(filePath);
+    } catch (e) {
+      console.warn(`Updater.unlink old file: ${e}`);
+    }
     const task: request.DownloadTask = await request.downloadFile(context, {
       url: url,
       filePath: filePath,
@@ -177,32 +182,48 @@ export class Updater {
     });
   }
 
+  static downloadPathFor(context: common.Context, fileName: string): string {
+    return `${context.filesDir}/updates/${fileName}`;
+  }
+
+  static fileExists(path: string): boolean {
+    try {
+      const stat: fs.Stat = fs.statSync(path);
+      return stat.isFile();
+    } catch (e) {
+      return false;
+    }
+  }
+
   static uriFor(path: string): string {
     return fileUri.getUriFromPath(path);
   }
 
   static async openHap(context: common.UIAbilityContext, path: string): Promise<boolean> {
     const uri: string = Updater.uriFor(path);
+    const readUriFlag: number = 1;
     try {
       const want: Want = {
         action: 'ohos.want.action.viewData',
         uri: uri,
-        type: 'application/hap',
-      };
-      await context.startAbility(want);
-      return true;
-    } catch (e) {
-      console.error(`Updater.openHap(type) error: ${e}`);
-    }
-    try {
-      const want: Want = {
-        action: 'ohos.want.action.viewData',
-        uri: uri,
+        flags: readUriFlag,
       };
       await context.startAbility(want);
       return true;
     } catch (e) {
       console.error(`Updater.openHap(plain) error: ${e}`);
+    }
+    try {
+      const want: Want = {
+        action: 'ohos.want.action.viewData',
+        uri: uri,
+        type: 'application/hap',
+        flags: readUriFlag,
+      };
+      await context.startAbility(want);
+      return true;
+    } catch (e) {
+      console.error(`Updater.openHap(type) error: ${e}`);
     }
     return false;
   }
