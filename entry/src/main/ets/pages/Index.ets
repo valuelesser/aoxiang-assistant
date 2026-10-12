@@ -231,6 +231,22 @@ struct Index {
     }
   }
 
+  private updateNotes(): string {
+    const latest: ReleaseInfo | undefined = this.updateLatest;
+    if (latest === undefined) {
+      return '';
+    }
+    const lines: string[] = latest.body.split('\n');
+    const out: string[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      const cleaned: string = lines[i].replace(/^#{1,6}\s*/, '').replace(/^>\s*/, '').trim();
+      if (cleaned.length > 0) {
+        out.push(cleaned);
+      }
+    }
+    return out.join('\n');
+  }
+
   private async startDownload(): Promise<void> {
     const latest: ReleaseInfo | undefined = this.updateLatest;
     if (latest === undefined || this.updateDownloading) {
@@ -3804,6 +3820,23 @@ struct Index {
               .width('100%')
               .height(0.5)
               .backgroundColor($r('app.color.divider'))
+
+            if (this.updateNotes().length > 0) {
+              Row() {
+                Text('更新日志')
+                  .fontSize(14)
+                  .fontColor($r('app.color.text_secondary'))
+              }
+              .width('100%')
+              .height(36)
+
+              Text(this.updateNotes())
+                .fontSize(12)
+                .fontColor($r('app.color.text_tertiary'))
+                .lineHeight(18)
+                .width('100%')
+                .margin({ bottom: 6 })
+            }
 
             Column() {
               if (this.updateStatusText.length > 0) {
