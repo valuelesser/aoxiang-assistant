@@ -13,7 +13,7 @@
       "isDynamic": true,
       "isDefault": true,
       "updateEnabled": true,
-      "scheduledUpdateTime": "07:30",
+      "scheduledUpdateTime": "00:00",
       "updateDuration": 2,
       "defaultDimension": "2*2",
       "supportDimensions": [
@@ -36,7 +36,7 @@
       "isDynamic": true,
       "isDefault": false,
       "updateEnabled": true,
-      "scheduledUpdateTime": "07:30",
+      "scheduledUpdateTime": "00:00",
       "updateDuration": 2,
       "defaultDimension": "2*4",
       "supportDimensions": [
@@ -59,7 +59,7 @@
       "isDynamic": true,
       "isDefault": false,
       "updateEnabled": true,
-      "scheduledUpdateTime": "07:30",
+      "scheduledUpdateTime": "00:00",
       "updateDuration": 2,
       "defaultDimension": "4*4",
       "supportDimensions": [
@@ -82,7 +82,7 @@
       "isDynamic": true,
       "isDefault": false,
       "updateEnabled": true,
-      "scheduledUpdateTime": "07:30",
+      "scheduledUpdateTime": "00:00",
       "updateDuration": 2,
       "defaultDimension": "2*2",
       "supportDimensions": [
