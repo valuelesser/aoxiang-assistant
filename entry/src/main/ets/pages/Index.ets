@@ -1,5 +1,5 @@
 import webview from '@ohos.web.webview';
-import { common } from '@kit.AbilityKit';
+import { common, Want, bundleManager } from '@kit.AbilityKit';
 import { preferences } from '@kit.ArkData';
 import { util } from '@kit.ArkTS';
 import picker from '@ohos.file.picker';
@@ -16,6 +16,7 @@ import { Constants, LoginPhase, LoginTarget } from '../common/Constants';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { WidgetPusher } from '../model/WidgetPusher';
 import { HdsTabs, HdsTabsController, hdsMaterial } from '@kit.UIDesignKit';
+import { Updater, ReleaseInfo, ReleaseAsset, UpdateSource } from '../model/Updater';
 
 @Entry
 @Component
@@ -67,6 +68,17 @@ struct Index {
   @State materialLevel: hdsMaterial.MaterialLevel = hdsMaterial.MaterialLevel.ADAPTIVE;
   @State materialImmersiveSupported: boolean = true;
   @StorageProp('topRectHeight') topRectHeight: number = 0;
+  @State showUpdateView: boolean = false;
+  @State updateSource: string = UpdateSource.ATOM_GIT;
+  @State updateLatest: ReleaseInfo | undefined = undefined;
+  @State updateChecking: boolean = false;
+  @State updateStatusText: string = '';
+  @State updateDownloading: boolean = false;
+  @State updateProgress: number = 0;
+  @State updateProgressText: string = '';
+  @State updateDownloadPath: string = '';
+  @State showUpdatePrompt: boolean = false;
+  private currentVersionName: string = '';
 
   private webController: webview.WebviewController = new webview.WebviewController();
   private tabsController: HdsTabsController = new HdsTabsController();
@@ -97,6 +109,8 @@ struct Index {
     this.loadMaterialLevel();
     console.info(`aboutToAppear done: grades=${this.grades.length} electricity=${this.electricityBalance} hasCreds=${this.hasCredentials}`);
     this.pushWidgetData();
+    await this.initCurrentVersion();
+    this.autoCheckUpdate();
   }
 
   private pushWidgetData(): void {
@@ -106,6 +120,96 @@ struct Index {
         this.selectedSemesterIndex, this.electricityBalance);
     } catch (e) {
       console.error(`pushWidgetData failed: ${e}`);
+    }
+  }
+
+  private async initCurrentVersion(): Promise<void> {
+    try {
+      const info: bundleManager.BundleInfo =
+        await bundleManager.getBundleInfoForSelf(bundleManager.BundleFlag.GET_BUNDLE_INFO_DEFAULT);
+      this.currentVersionName = info.versionName;
+      console.info(`initCurrentVersion: ${this.currentVersionName}`);
+    } catch (e) {
+      console.error(`initCurrentVersion error: ${e}`);
+    }
+  }
+
+  private async autoCheckUpdate(): Promise<void> {
+    const latest: ReleaseInfo | undefined = await Updater.checkLatest(UpdateSource.ATOM_GIT);
+    if (latest === undefined) {
+      return;
+    }
+    const cur: number[] = Updater.parseVersion(this.currentVersionName);
+    const latestVer: number[] = Updater.parseVersion(latest.tagName);
+    if (Updater.compareVersion(latestVer, cur) > 0 && Updater.hapAsset(latest) !== undefined) {
+      this.updateLatest = latest;
+      this.showUpdatePrompt = true;
+    }
+  }
+
+  private async doCheckUpdate(): Promise<void> {
+    if (this.updateChecking) {
+      return;
+    }
+    this.updateChecking = true;
+    this.updateStatusText = '正在检查…';
+    this.updateLatest = undefined;
+    this.updateDownloadPath = '';
+    this.updateProgress = 0;
+    this.updateProgressText = '';
+    const latest: ReleaseInfo | undefined = await Updater.checkLatest(this.updateSource);
+    this.updateChecking = false;
+    if (latest === undefined) {
+      this.updateStatusText = '检查失败：无法连接服务器，请稍后重试';
+      return;
+    }
+    this.updateLatest = latest;
+    const cur: number[] = Updater.parseVersion(this.currentVersionName);
+    const latestVer: number[] = Updater.parseVersion(latest.tagName);
+    if (Updater.compareVersion(latestVer, cur) > 0) {
+      this.updateStatusText = `发现新版本 ${latest.tagName}`;
+    } else {
+      this.updateStatusText = '已是最新版本';
+    }
+  }
+
+  private async startDownload(): Promise<void> {
+    const latest: ReleaseInfo | undefined = this.updateLatest;
+    if (latest === undefined || this.updateDownloading) {
+      return;
+    }
+    const asset: ReleaseAsset | undefined = Updater.hapAsset(latest);
+    if (asset === undefined || asset.url.length === 0) {
+      this.updateStatusText = '该版本没有可下载的安装包';
+      return;
+    }
+    this.updateDownloading = true;
+    this.updateProgress = 0;
+    this.updateProgressText = '开始下载…';
+    const context = getContext(this) as common.UIAbilityContext;
+    try {
+      const path: string = await Updater.downloadHap(context, asset.url, asset.name,
+        (received: number, total: number) => {
+          if (total > 0) {
+            const pct: number = Math.round(received * 100 / total);
+            this.updateProgress = pct;
+            this.updateProgressText = `${pct}%（${(received / 1048576).toFixed(1)}MB / ${(total / 1048576).toFixed(1)}MB）`;
+          } else {
+            this.updateProgressText = `已下载 ${Math.round(received / 1024)}KB`;
+          }
+        });
+      this.updateDownloading = false;
+      this.updateDownloadPath = path;
+      this.updateProgressText = '下载完成';
+      const opened: boolean = await Updater.openHap(context, path);
+      if (opened) {
+        this.updateStatusText = '已打开，请在系统弹窗中选择可打开安装包的应用';
+      } else {
+        this.updateStatusText = '下载完成，但无法自动打开安装器，请通过文件管理器安装';
+      }
+    } catch (e) {
+      this.updateDownloading = false;
+      this.updateStatusText = `下载失败：${e}`;
     }
   }
 
@@ -1176,6 +1280,14 @@ struct Index {
       if (this.showCourseDetail) {
         this.CourseDetailDialog()
       }
+
+      if (this.showUpdatePrompt) {
+        this.UpdatePromptDialog()
+      }
+
+      if (this.showUpdateView) {
+        this.UpdateView()
+      }
     }
     .width('100%')
     .height('100%')
@@ -1900,6 +2012,50 @@ struct Index {
               .width('100%')
               .padding({ left: 16, bottom: 8 })
           }
+        }
+        .width('92%')
+        .backgroundColor($r('app.color.card_background'))
+        .borderRadius(12)
+        .margin({ top: 12 })
+
+        Column() {
+          Row() {
+            Text('检查更新')
+              .fontSize(15)
+              .fontColor($r('app.color.text_secondary'))
+            Blank()
+            Text(Updater.sourceLabel(this.updateSource))
+              .fontSize(13)
+              .fontColor($r('app.color.text_hint'))
+            Text('›')
+              .fontSize(16)
+              .fontColor($r('app.color.text_hint'))
+              .margin({ left: 4 })
+          }
+          .width('100%')
+          .height(52)
+          .padding({ left: 16, right: 16 })
+          .onClick(() => {
+            this.showUpdateView = true;
+          })
+
+          Row()
+            .width('100%')
+            .height(0.5)
+            .backgroundColor($r('app.color.divider'))
+
+          Row() {
+            Text('当前版本')
+              .fontSize(15)
+              .fontColor($r('app.color.text_secondary'))
+            Blank()
+            Text(this.currentVersionName.length > 0 ? `v${this.currentVersionName}` : '')
+              .fontSize(14)
+              .fontColor($r('app.color.text_tertiary'))
+          }
+          .width('100%')
+          .height(52)
+          .padding({ left: 16, right: 16 })
         }
         .width('92%')
         .backgroundColor($r('app.color.card_background'))
@@ -3394,5 +3550,270 @@ struct Index {
     .justifyContent(FlexAlign.Center)
     .backgroundColor($r('app.color.overlay_dim'))
     .zIndex(15)
+  }
+
+  private hasNewUpdate(): boolean {
+    const latest: ReleaseInfo | undefined = this.updateLatest;
+    if (latest === undefined) {
+      return false;
+    }
+    return Updater.compareVersion(Updater.parseVersion(latest.tagName),
+      Updater.parseVersion(this.currentVersionName)) > 0;
+  }
+
+  @Builder
+  UpdatePromptDialog() {
+    Column() {
+      Column() {
+        Text('发现新版本')
+          .fontSize(16)
+          .fontColor($r('app.color.text_secondary'))
+          .fontWeight(FontWeight.Bold)
+          .margin({ bottom: 8 })
+
+        Text(this.updateLatest !== undefined ? this.updateLatest.tagName : '')
+          .fontSize(28)
+          .fontColor($r('app.color.accent'))
+          .fontWeight(FontWeight.Bold)
+          .margin({ bottom: 6 })
+
+        Text('可在「设置 → 检查更新」中下载安装')
+          .fontSize(12)
+          .fontColor($r('app.color.text_tertiary'))
+
+        Row() {
+          Button('知道了')
+            .layoutWeight(1)
+            .height(44)
+            .backgroundColor(Color.Transparent)
+            .fontColor($r('app.color.text_hint'))
+            .fontSize(14)
+            .border({ width: 1, color: $r('app.color.border_light'), radius: 8 })
+            .onClick(() => {
+              this.showUpdatePrompt = false;
+            })
+
+          Button('去检查更新')
+            .layoutWeight(1)
+            .height(44)
+            .backgroundColor($r('app.color.accent_strong'))
+            .fontColor(Color.White)
+            .fontSize(14)
+            .borderRadius(8)
+            .margin({ left: 10 })
+            .onClick(() => {
+              this.showUpdatePrompt = false;
+              this.showUpdateView = true;
+              this.doCheckUpdate();
+            })
+        }
+        .width('100%')
+        .margin({ top: 14 })
+      }
+      .width('90%')
+      .backgroundColor($r('app.color.card_background'))
+      .borderRadius(16)
+      .padding(22)
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor($r('app.color.overlay_dim'))
+    .zIndex(16)
+  }
+
+  @Builder
+  UpdateView() {
+    Column() {
+      Row() {
+        Button('‹ 返回')
+          .height(36)
+          .backgroundColor(Color.Transparent)
+          .fontColor($r('app.color.accent'))
+          .fontSize(14)
+          .onClick(() => {
+            this.showUpdateView = false;
+          })
+
+        Text('检查更新')
+          .fontSize(18)
+          .fontColor($r('app.color.text_secondary'))
+          .fontWeight(FontWeight.Bold)
+          .margin({ left: 8 })
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16, top: 14, bottom: 10 })
+
+      Scroll() {
+        Column() {
+          Column() {
+            Text('更新源')
+              .fontSize(15)
+              .fontColor($r('app.color.text_secondary'))
+              .width('100%')
+              .padding({ left: 16, top: 12, bottom: 8 })
+
+            Row() {
+              Button('atomgit')
+                .layoutWeight(1)
+                .height(38)
+                .backgroundColor(this.updateSource === UpdateSource.ATOM_GIT ? $r('app.color.accent_strong') : Color.Transparent)
+                .fontColor(this.updateSource === UpdateSource.ATOM_GIT ? Color.White : $r('app.color.text_secondary'))
+                .fontSize(13)
+                .borderRadius(8)
+                .onClick(() => {
+                  this.updateSource = UpdateSource.ATOM_GIT;
+                  this.updateLatest = undefined;
+                  this.updateStatusText = '';
+                  this.updateDownloadPath = '';
+                  this.updateProgress = 0;
+                  this.updateProgressText = '';
+                })
+
+              Button('GitHub')
+                .layoutWeight(1)
+                .height(38)
+                .backgroundColor(this.updateSource === UpdateSource.GITHUB ? $r('app.color.accent_strong') : Color.Transparent)
+                .fontColor(this.updateSource === UpdateSource.GITHUB ? Color.White : $r('app.color.text_secondary'))
+                .fontSize(13)
+                .borderRadius(8)
+                .margin({ left: 10 })
+                .onClick(() => {
+                  this.updateSource = UpdateSource.GITHUB;
+                  this.updateLatest = undefined;
+                  this.updateStatusText = '';
+                  this.updateDownloadPath = '';
+                  this.updateProgress = 0;
+                  this.updateProgressText = '';
+                })
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16, bottom: 12 })
+          }
+          .width('92%')
+          .backgroundColor($r('app.color.card_background'))
+          .borderRadius(12)
+
+          Column() {
+            Row() {
+              Text('当前版本')
+                .fontSize(14)
+                .fontColor($r('app.color.text_secondary'))
+              Blank()
+              Text(this.currentVersionName.length > 0 ? `v${this.currentVersionName}` : '—')
+                .fontSize(14)
+                .fontColor($r('app.color.text_primary'))
+            }
+            .width('100%')
+            .height(46)
+            .padding({ left: 16, right: 16 })
+
+            Row()
+              .width('100%')
+              .height(0.5)
+              .backgroundColor($r('app.color.divider'))
+
+            Row() {
+              Text('最新版本')
+                .fontSize(14)
+                .fontColor($r('app.color.text_secondary'))
+              Blank()
+              Text(this.updateLatest !== undefined ? this.updateLatest.tagName : '—')
+                .fontSize(14)
+                .fontColor($r('app.color.accent'))
+            }
+            .width('100%')
+            .height(46)
+            .padding({ left: 16, right: 16 })
+          }
+          .width('92%')
+          .backgroundColor($r('app.color.card_background'))
+          .borderRadius(12)
+          .margin({ top: 12 })
+
+          Column() {
+            if (this.updateStatusText.length > 0) {
+              Text(this.updateStatusText)
+                .fontSize(13)
+                .fontColor($r('app.color.text_secondary'))
+                .width('100%')
+                .margin({ bottom: 10 })
+            }
+
+            Button(this.updateChecking ? '检查中…' : '检查更新')
+              .width('100%')
+              .height(44)
+              .backgroundColor($r('app.color.accent_strong'))
+              .fontColor(Color.White)
+              .fontSize(14)
+              .borderRadius(8)
+              .enabled(!this.updateChecking && !this.updateDownloading)
+              .onClick(() => {
+                this.doCheckUpdate();
+              })
+
+            if (this.hasNewUpdate()) {
+              Button(this.updateDownloading ? `下载中 ${this.updateProgress}%` : '下载安装包')
+                .width('100%')
+                .height(44)
+                .backgroundColor($r('app.color.accent_strong'))
+                .fontColor(Color.White)
+                .fontSize(14)
+                .borderRadius(8)
+                .margin({ top: 10 })
+                .enabled(!this.updateDownloading)
+                .onClick(() => {
+                  this.startDownload();
+                })
+
+              if (this.updateDownloading) {
+                Progress({ value: this.updateProgress, total: 100 })
+                  .width('100%')
+                  .color($r('app.color.accent'))
+                  .margin({ top: 8 })
+              }
+
+              if (this.updateProgressText.length > 0) {
+                Text(this.updateProgressText)
+                  .fontSize(12)
+                  .fontColor($r('app.color.text_hint'))
+                  .width('100%')
+                  .margin({ top: 4 })
+              }
+
+              if (this.updateDownloadPath.length > 0) {
+                Button('打开安装包')
+                  .width('100%')
+                  .height(44)
+                  .backgroundColor(Color.Transparent)
+                  .fontColor($r('app.color.accent'))
+                  .fontSize(14)
+                  .border({ width: 1, color: $r('app.color.accent'), radius: 8 })
+                  .margin({ top: 10 })
+                  .onClick(() => {
+                    const context = getContext(this) as common.UIAbilityContext;
+                    Updater.openHap(context, this.updateDownloadPath);
+                  })
+              }
+            }
+          }
+          .width('92%')
+          .backgroundColor($r('app.color.card_background'))
+          .borderRadius(12)
+          .margin({ top: 12 })
+          .padding(16)
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Center)
+        .padding({ bottom: 40 })
+      }
+      .width('100%')
+      .layoutWeight(1)
+      .scrollBar(BarState.Off)
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('app.color.page_background'))
+    .zIndex(16)
   }
 }
